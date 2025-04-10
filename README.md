@@ -4,8 +4,11 @@
 
 ## Docker 一键部署
 
+```
+git clone https://github.com/Rstary/BookmarkManager.git
+```
+
 ```bash
-# 构建并启动容器
 docker-compose up -d
 ```
 
