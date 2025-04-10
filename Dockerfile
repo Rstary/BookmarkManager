@@ -14,6 +14,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         gcc \
         python3-dev \
+        curl \
     && rm -rf /var/lib/apt/lists/*
 
 # 创建非root用户
@@ -28,11 +29,11 @@ RUN pip install --no-cache-dir -r requirements.txt \
     && apt-get autoremove -y
 
 # 创建实例目录并设置权限
-RUN mkdir -p instance && chown -R appuser:appuser instance
+RUN mkdir -p /app/instance && chown -R appuser:appuser /app/instance && chmod 755 /app/instance
 
 # 复制应用代码
 COPY . .
-RUN chown -R appuser:appuser .
+RUN chown -R appuser:appuser /app
 
 # 切换到非root用户
 USER appuser
