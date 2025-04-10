@@ -506,69 +506,75 @@ def delete_category(category_id):
 @login_required
 def move_category(category_id):
     db = get_db()
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': '无效的请求数据'}), 400
+    
+    parent_id = data.get('parent_id')
+    position = data.get('position')
+    
     try:
-        data = request.get_json()
-        parent_id = data.get('parent_id', None)
-        
-        # 检查分类是否存在
+        # 获取要移动的分类信息
         category = db.execute(
-            'SELECT id, parent_id FROM categories WHERE id = ?',
+            'SELECT * FROM categories WHERE id = ?',
             (category_id,)
         ).fetchone()
         
         if not category:
-            return jsonify({'message': '分类不存在'}), 404
+            return jsonify({'error': '分类不存在'}), 404
         
-        # 检查是否有子分类
-        subcategories = db.execute(
-            'SELECT id FROM categories WHERE parent_id = ?',
-            (category_id,)
+        # 获取目标位置的分类信息
+        target_category = db.execute(
+            'SELECT * FROM categories WHERE position = ? AND parent_id IS ?',
+            (position, parent_id)
+        ).fetchone()
+        
+        if not target_category:
+            return jsonify({'error': '目标位置不存在'}), 404
+        
+        # 确保只能在同级之间移动
+        if category['parent_id'] != parent_id:
+            return jsonify({'error': '只能在同级目录之间调整顺序'}), 400
+        
+        # 获取同级分类列表
+        siblings = db.execute(
+            'SELECT id, position FROM categories WHERE parent_id IS ? ORDER BY position',
+            (parent_id,)
         ).fetchall()
         
-        if subcategories:
-            return jsonify({'message': '无法移动包含子分类的分类，请先移除所有子分类'}), 400
+        # 计算新的位置
+        old_pos = category['position']
+        new_pos = position
         
-        # 如果指定了父分类，检查父分类是否存在
-        if parent_id:
-            parent_category = db.execute(
-                'SELECT id, parent_id FROM categories WHERE id = ?',
-                (parent_id,)
-            ).fetchone()
-            
-            if not parent_category:
-                return jsonify({'message': '父分类不存在'}), 404
-            
-            # 确保父分类是主分类，不能是子分类（防止三级嵌套）
-            if parent_category['parent_id'] is not None:
-                return jsonify({'message': '只能移动到主分类下，不能移动到子分类下'}), 400
-            
-            # 检查是否会导致循环引用
-            current_parent_id = parent_id
-            while current_parent_id:
-                if int(current_parent_id) == category_id:
-                    return jsonify({'message': '不能将分类移动到其子分类下'}), 400
-                
-                parent = db.execute(
-                    'SELECT parent_id FROM categories WHERE id = ?',
-                    (current_parent_id,)
-                ).fetchone()
-                
-                if parent:
-                    current_parent_id = parent['parent_id']
-                else:
-                    current_parent_id = None
+        # 更新位置
+        if old_pos < new_pos:
+            # 向后移动：将中间的项目位置减1
+            db.execute(
+                'UPDATE categories SET position = position - 1 '
+                'WHERE parent_id IS ? AND position > ? AND position <= ?',
+                (parent_id, old_pos, new_pos)
+            )
+        else:
+            # 向前移动：将中间的项目位置加1
+            db.execute(
+                'UPDATE categories SET position = position + 1 '
+                'WHERE parent_id IS ? AND position >= ? AND position < ?',
+                (parent_id, new_pos, old_pos)
+            )
         
-        # 更新分类的父分类
+        # 更新移动项的位置
         db.execute(
-            'UPDATE categories SET parent_id = ? WHERE id = ?',
-            (parent_id, category_id)
+            'UPDATE categories SET position = ? WHERE id = ?',
+            (new_pos, category_id)
         )
-        db.commit()
         
-        return jsonify({'message': '分类移动成功'})
+        db.commit()
+        return jsonify({'success': True})
+        
     except sqlite3.Error as e:
         db.rollback()
-        return jsonify({'message': f'移动分类失败: {str(e)}'}), 500
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/categories/reorder', methods=['POST'])
 @login_required

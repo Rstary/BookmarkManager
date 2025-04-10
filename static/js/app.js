@@ -447,8 +447,7 @@ async function fetchCategories() {
         const categories = await response.json();
         state.categories = categories;
         
-        // 折叠所有主目录
-        state.expandedCategories.clear();
+        // 移除自动折叠的代码，保持原有的展开状态
         renderCategories();
     } catch (error) {
         console.error('获取分类失败:', error);
@@ -786,6 +785,9 @@ function createCategoryElement(category, isSubcategory = false) {
     div.className = `category-item ${isSubcategory ? 'subcategory' : ''}`;
     div.dataset.categoryId = category.id;
     
+    // 添加拖拽属性
+    div.draggable = true;
+    
     // 创建图标和名称的容器
     const iconNameContainer = document.createElement('div');
     iconNameContainer.className = 'category-content';
@@ -821,6 +823,13 @@ function createCategoryElement(category, isSubcategory = false) {
         selectCategory(category.id);
     });
     
+    // 添加右键菜单事件
+    iconNameContainer.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        showCategoryContextMenu(e, category);
+    });
+    
     div.appendChild(iconNameContainer);
     
     // 添加子分类容器（仅对主目录）
@@ -831,14 +840,133 @@ function createCategoryElement(category, isSubcategory = false) {
         div.appendChild(subcategoriesContainer);
     }
     
-    // 右键菜单事件添加到iconNameContainer
-    iconNameContainer.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        showCategoryContextMenu(e, category);
-    });
+    // 添加拖拽事件监听器
+    div.addEventListener('dragstart', handleDragStart);
+    div.addEventListener('dragend', handleDragEnd);
+    div.addEventListener('dragover', handleDragOver);
+    div.addEventListener('dragenter', handleDragEnter);
+    div.addEventListener('dragleave', handleDragLeave);
+    div.addEventListener('drop', handleDrop);
     
     return div;
+}
+
+// 拖拽相关函数
+function handleDragStart(e) {
+    e.stopPropagation();
+    const categoryItem = e.target.closest('.category-item');
+    if (!categoryItem) return;
+    
+    const categoryId = categoryItem.dataset.categoryId;
+    const draggedCategory = state.categories.find(c => c.id == categoryId);
+    if (!draggedCategory) return;
+    
+    categoryItem.classList.add('dragging');
+    e.dataTransfer.setData('text/plain', categoryId);
+    e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragEnd(e) {
+    e.stopPropagation();
+    const categoryItem = e.target.closest('.category-item');
+    if (categoryItem) {
+        categoryItem.classList.remove('dragging');
+    }
+    removeDragStyles();
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+}
+
+function handleDragEnter(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const categoryItem = e.target.closest('.category-item');
+    if (categoryItem && !categoryItem.classList.contains('dragging')) {
+        categoryItem.classList.add('drag-over');
+    }
+}
+
+function handleDragLeave(e) {
+    e.stopPropagation();
+    const categoryItem = e.target.closest('.category-item');
+    if (categoryItem) {
+        categoryItem.classList.remove('drag-over');
+    }
+}
+
+async function handleDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const draggedId = e.dataTransfer.getData('text/plain');
+    const dropTarget = e.target.closest('.category-item');
+    
+    if (!draggedId || !dropTarget || draggedId === dropTarget.dataset.categoryId) {
+        removeDragStyles();
+        return;
+    }
+    
+    const draggedCategory = state.categories.find(c => c.id == draggedId);
+    const targetCategory = state.categories.find(c => c.id == dropTarget.dataset.categoryId);
+    
+    if (!draggedCategory || !targetCategory) {
+        removeDragStyles();
+        return;
+    }
+    
+    try {
+        // 判断是否为同级目录之间的排序
+        const isSameLevel = draggedCategory.parent_id === targetCategory.parent_id;
+        
+        // 如果是主目录拖到子目录，或子目录拖到不同父级的子目录下，阻止操作
+        if ((!draggedCategory.parent_id && targetCategory.parent_id) || 
+            (draggedCategory.parent_id && targetCategory.parent_id && !isSameLevel)) {
+            showError('只能在同级目录之间调整顺序');
+            removeDragStyles();
+            return;
+        }
+        
+        // 保存当前展开状态
+        const expandedState = new Set(state.expandedCategories);
+        
+        const response = await fetch(`/api/categories/${draggedId}/move`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                parent_id: targetCategory.parent_id,
+                position: targetCategory.position
+            })
+        });
+        
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error || '移动分类失败');
+        }
+        
+        // 重新加载分类列表
+        await fetchCategories();
+        
+        // 恢复展开状态
+        state.expandedCategories = expandedState;
+        renderCategories();
+    } catch (error) {
+        console.error('Error:', error);
+        showError(error.message);
+    }
+    
+    removeDragStyles();
+}
+
+function removeDragStyles() {
+    document.querySelectorAll('.category-item').forEach(item => {
+        item.classList.remove('dragging', 'drag-over');
+    });
 }
 
 // 切换分类的展开/折叠状态

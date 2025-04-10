@@ -342,6 +342,7 @@ header {
     display: flex;
     align-items: center;
     gap: 8px;
+    user-select: none; /* 防止拖拽时选中文本 */
 }
 
 .category-content:hover {
@@ -852,4 +853,22 @@ header {
 
 .toast.warning i {
     color: var(--warning-color);
+}
+
+/* 拖拽相关样式 */
+.category-item.dragging {
+    opacity: 0.5;
+}
+
+.category-item.drag-over {
+    border: 2px dashed var(--primary-color);
+    margin: 5px 0;
+    border-radius: 4px;
+}
+
+.category-placeholder {
+    border: 2px dashed #ccc;
+    margin: 5px 0;
+    height: 36px;
+    border-radius: 4px;
 } 
