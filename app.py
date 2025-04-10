@@ -885,7 +885,7 @@ def update_bookmark_position(id):
             })
         
         print(f"书签位置更新成功: id={id}, 规范化后位置={updated_bookmark['position']}, 分类={category_id}")
-        print(f"分类 {category_id} 中所有书签位置: {', '.join([f'{b[\"title\"]}:{b[\"position\"]}' for b in category_bookmarks_list])}")
+        print(f"分类 {category_id} 中所有书签位置: {', '.join([f\"{b['title']}:{b['position']}\" for b in category_bookmarks_list])}")
         
         # 转换为字典
         if updated_bookmark:
