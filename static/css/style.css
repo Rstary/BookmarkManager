@@ -1,0 +1,713 @@
+/* 全局样式 */
+:root {
+    --background-color: rgba(255, 255, 255, 0.8);
+    --card-background: rgba(255, 255, 255, 0.7);
+    --primary-color: #0078d7;
+    --hover-color: #005a9e;
+    --text-color: #333;
+    --border-color: rgba(0, 0, 0, 0.1);
+    --shadow-color: rgba(0, 0, 0, 0.1);
+    --sidebar-width: 280px;
+    --header-height: 60px;
+    --success-color: #4CAF50;
+    --danger-color: #F44336;
+    --warning-color: #FF9800;
+    --bookmark-width: 250px;
+    --bookmark-height: 120px;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', sans-serif;
+    color: var(--text-color);
+    background-image: url('https://raw.githubusercontent.com/microsoft/WindowsTemplateStudio/dev/code/SharedFunctionality/Templates/GoogleTemplateStudio/VSIX/Templates/Pg/TwoPaneView/Param_ProjectName/Assets/Wide310x150Logo.scale-400.png');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    position: relative;
+}
+
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(20px) saturate(125%);
+    -webkit-backdrop-filter: blur(20px) saturate(125%);
+    z-index: -1;
+}
+
+a {
+    text-decoration: none;
+    color: var(--primary-color);
+}
+
+button, .btn {
+    padding: 8px 16px;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'Segoe UI', sans-serif;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+button:hover, .btn:hover {
+    background-color: var(--hover-color);
+}
+
+button:disabled, .btn:disabled {
+    background-color: var(--border-color);
+    cursor: not-allowed;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="url"],
+textarea,
+select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-family: 'Segoe UI', sans-serif;
+    font-size: 14px;
+    background-color: rgba(255, 255, 255, 0.7);
+}
+
+textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+/* 认证页面样式 */
+.auth-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+.auth-card {
+    background-color: var(--card-background);
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px var(--shadow-color);
+    width: 400px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.auth-card h1 {
+    margin-bottom: 20px;
+    color: var(--primary-color);
+    text-align: center;
+}
+
+.auth-card h2 {
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.alert {
+    padding: 12px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+}
+
+.alert-danger {
+    background-color: rgba(244, 67, 54, 0.1);
+    border: 1px solid rgba(244, 67, 54, 0.2);
+    color: var(--danger-color);
+}
+
+/* 主页面样式 */
+header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--header-height);
+    background-color: var(--background-color);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 20px;
+    z-index: 100;
+}
+
+.logo h1 {
+    font-size: 24px;
+    color: var(--primary-color);
+}
+
+.search-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 40%;
+}
+
+.search-engine-selector {
+    position: relative;
+}
+
+#search-engine-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 12px;
+    border-radius: 20px;
+    background-color: var(--background-color);
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    color: var(--text-color);
+}
+
+#search-engine-btn i {
+    color: var(--primary-color);
+}
+
+#search-engine-btn:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.search-engine-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 100;
+    background-color: var(--card-background);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    width: 120px;
+    display: none;
+    margin-top: 5px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.search-engine-dropdown.show {
+    display: block;
+}
+
+.search-engine-option {
+    padding: 10px 15px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.search-engine-option:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.search-engine-option:first-child {
+    border-radius: 8px 8px 0 0;
+}
+
+.search-engine-option:last-child {
+    border-radius: 0 0 8px 8px;
+}
+
+.search-engine-option i {
+    color: var(--primary-color);
+}
+
+.search-container input {
+    flex-grow: 1;
+    padding: 8px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border-color);
+}
+
+.search-container button {
+    padding: 8px 12px;
+    border-radius: 20px;
+}
+
+.user-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.logout-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--text-color);
+    padding: 8px 16px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.logout-btn:hover {
+    color: var(--primary-color);
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.container {
+    display: flex;
+    min-height: 100vh;
+    padding-top: var(--header-height);
+}
+
+/* 侧边栏样式 */
+.sidebar {
+    width: var(--sidebar-width);
+    background-color: var(--background-color);
+    border-right: 1px solid var(--border-color);
+    height: calc(100vh - var(--header-height));
+    overflow-y: auto;
+    position: fixed;
+    left: 0;
+    top: var(--header-height);
+    display: flex;
+    flex-direction: column;
+}
+
+.categories-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.categories-header h2 {
+    font-size: 18px;
+}
+
+.categories-header button {
+    padding: 5px 10px;
+    font-size: 16px;
+}
+
+#categories-tree {
+    padding: 15px;
+    flex-grow: 1;
+    overflow-y: auto;
+}
+
+.sidebar-footer {
+    padding: 15px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: center;
+}
+
+.category-item {
+    margin: 5px 0;
+    padding: 8px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+}
+
+.category-item:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.category-item.active {
+    background-color: rgba(0, 120, 215, 0.1);
+    color: var(--primary-color);
+}
+
+.category-item i {
+    font-size: 16px;
+    width: 20px;
+    text-align: center;
+}
+
+.category-item .category-name {
+    flex-grow: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.subcategory-container {
+    margin-left: 28px;
+}
+
+/* 内容区样式 */
+.content {
+    flex-grow: 1;
+    padding: 20px;
+    margin-left: var(--sidebar-width);
+    min-height: calc(100vh - var(--header-height));
+    position: relative;
+}
+
+#category-title {
+    margin-bottom: 20px;
+    text-align: center;
+    font-size: 24px;
+    font-weight: 500;
+}
+
+#bookmarks-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.search-results-container {
+    display: none;
+    flex-direction: column;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.search-results-container.active {
+    display: flex;
+}
+
+.search-group {
+    margin-bottom: 20px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 15px;
+    background-color: rgba(255, 255, 255, 0.5);
+}
+
+.search-group-title {
+    font-size: 18px;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--primary-color);
+}
+
+.search-group-title i {
+    font-size: 16px;
+}
+
+.subcategory-section {
+    width: 100%;
+    margin-bottom: 30px;
+}
+
+.subcategory-section h3 {
+    margin-bottom: 15px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.bookmark-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    padding: 10px;
+    min-height: 150px;
+    position: relative;
+}
+
+.bookmark-card {
+    width: var(--bookmark-width);
+    height: var(--bookmark-height);
+    background-color: var(--card-background);
+    border-radius: 10px;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    position: relative;
+    border: 1px solid var(--border-color);
+}
+
+.bookmark-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px var(--shadow-color);
+}
+
+.bookmark-card.selected {
+    border: 2px solid var(--primary-color);
+    background-color: rgba(0, 120, 215, 0.05);
+}
+
+.bookmark-title {
+    font-weight: 500;
+    font-size: 16px;
+    margin-bottom: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.bookmark-description {
+    font-size: 14px;
+    color: #666;
+    flex-grow: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.bookmark-actions {
+    margin-top: 10px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.bookmark-actions button {
+    padding: 5px 10px;
+    font-size: 14px;
+}
+
+.empty-message {
+    text-align: center;
+    color: #666;
+    margin: 20px 0;
+}
+
+/* 多选工具栏 */
+.multi-select-toolbar {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: var(--card-background);
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 5px 15px var(--shadow-color);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 90;
+    display: none;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.multi-select-toolbar.active {
+    display: flex;
+}
+
+#selected-count {
+    margin-right: 10px;
+    font-weight: 500;
+}
+
+/* 模态框样式 */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 999;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.4);
+}
+
+.modal-content {
+    background-color: var(--card-background);
+    margin: 10% auto;
+    padding: 30px;
+    border-radius: 10px;
+    width: 500px;
+    box-shadow: 0 10px 30px var(--shadow-color);
+    position: relative;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.close {
+    position: absolute;
+    right: 20px;
+    top: 15px;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.close:hover {
+    color: var(--primary-color);
+}
+
+.modal h2 {
+    margin-bottom: 20px;
+}
+
+.cancel-btn {
+    background-color: #757575;
+}
+
+.cancel-btn:hover {
+    background-color: #616161;
+}
+
+/* 上下文菜单 */
+.context-menu {
+    display: none;
+    position: absolute;
+    z-index: 999;
+    background-color: var(--card-background);
+    border-radius: 5px;
+    box-shadow: 0 5px 15px var(--shadow-color);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.context-menu ul {
+    list-style: none;
+}
+
+.context-menu li {
+    padding: 10px 15px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.context-menu li:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.context-menu li i {
+    width: 20px;
+    text-align: center;
+}
+
+/* 拖拽样式 */
+.dragging {
+    opacity: 0.5;
+}
+
+.drag-over {
+    background-color: rgba(0, 120, 215, 0.1);
+    border: 2px dashed var(--primary-color);
+}
+
+.bookmark-card.dragging {
+    opacity: 0.5;
+    transform: scale(0.95);
+    box-shadow: 0 5px 15px var(--shadow-color);
+    z-index: 100;
+    position: relative;
+    cursor: grabbing;
+}
+
+/* 书签拖放加载状态 - 改为更轻量级的指示器 */
+.bookmark-grid.loading {
+    position: relative;
+    opacity: 0.95;
+}
+
+.bookmark-grid.loading::after {
+    content: "";
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(0, 120, 215, 0.5);
+    border-top: 2px solid transparent;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    z-index: 1000;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    :root {
+        --sidebar-width: 200px;
+        --bookmark-width: 200px;
+        --bookmark-height: 100px;
+    }
+    
+    .search-container {
+        width: 30%;
+    }
+    
+    .modal-content {
+        width: 90%;
+    }
+}
+
+@media (max-width: 576px) {
+    .container {
+        flex-direction: column;
+    }
+    
+    .sidebar {
+        width: 100%;
+        height: auto;
+        position: relative;
+        top: 0;
+    }
+    
+    .content {
+        margin-left: 0;
+    }
+    
+    .search-container {
+        display: none;
+    }
+    
+    :root {
+        --bookmark-width: 100%;
+    }
+    
+    .multi-select-toolbar {
+        width: 90%;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+} 

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>私人书签管理器</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <h1>私人书签管理器</h1>
+        </div>
+        <div class="search-container">
+            <div class="search-engine-selector">
+                <button id="search-engine-btn">
+                    <i id="search-engine-icon" class="fab fa-google"></i>
+                    <i class="fas fa-caret-down"></i>
+                </button>
+                <div id="search-engine-dropdown" class="search-engine-dropdown">
+                    <div class="search-engine-option" data-engine="google" data-icon="fab fa-google">Google</div>
+                    <div class="search-engine-option" data-engine="bing" data-icon="fab fa-microsoft">Bing</div>
+                    <div class="search-engine-option" data-engine="baidu" data-icon="fas fa-paw">百度</div>
+                </div>
+            </div>
+            <input type="text" id="search-input" placeholder="搜索书签..." />
+            <button id="search-btn">
+                <i class="fas fa-search"></i>
+            </button>
+        </div>
+        <div class="user-actions">
+            <button id="add-bookmark-header-btn" title="添加书签">
+                <i class="fas fa-bookmark"></i> 添加书签
+            </button>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="sidebar">
+            <div class="categories-header">
+                <h2>分类目录</h2>
+                <button id="add-category-btn" title="添加主分类">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
+            <div id="categories-tree"></div>
+            <div class="sidebar-footer">
+                <a href="{{ url_for('logout') }}" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i> 登出
+                </a>
+            </div>
+        </div>
+
+        <div class="content">
+            <div id="category-title"></div>
+            <div id="search-results-container" class="search-results-container">
+                <!-- 搜索结果将在这里显示 -->
+            </div>
+            <div id="bookmarks-container"></div>
+            <div class="multi-select-toolbar" id="multi-select-toolbar">
+                <span id="selected-count">已选择: 0</span>
+                <button id="open-selected-btn" title="打开选中的全部链接">
+                    <i class="fas fa-external-link-alt"></i> 打开
+                </button>
+                <button id="move-selected-btn" title="移动选中的书签">
+                    <i class="fas fa-folder-open"></i> 移动
+                </button>
+                <button id="delete-selected-btn" title="删除选中的书签">
+                    <i class="fas fa-trash"></i> 删除
+                </button>
+                <button id="cancel-multi-select-btn" title="取消选择">
+                    <i class="fas fa-times"></i> 取消
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加/编辑分类模态框 -->
+    <div id="category-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="category-modal-title">添加分类</h2>
+            <form id="category-form">
+                <input type="hidden" id="category-id">
+                <input type="hidden" id="parent-id">
+                <div class="form-group">
+                    <label for="category-name">分类名称</label>
+                    <input type="text" id="category-name" required>
+                </div>
+                <div class="form-actions">
+                    <button type="submit">保存</button>
+                    <button type="button" class="cancel-btn">取消</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 添加/编辑书签模态框 -->
+    <div id="bookmark-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="bookmark-modal-title">添加书签</h2>
+            <form id="bookmark-form">
+                <input type="hidden" id="bookmark-id">
+                <input type="hidden" id="bookmark-category-id">
+                <div class="form-group">
+                    <label for="bookmark-title">标题</label>
+                    <input type="text" id="bookmark-title" required>
+                </div>
+                <div class="form-group">
+                    <label for="bookmark-url">URL</label>
+                    <input type="url" id="bookmark-url" required>
+                </div>
+                <div class="form-group">
+                    <label for="bookmark-description">描述（可选）</label>
+                    <textarea id="bookmark-description"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="bookmark-category-select">分类</label>
+                    <select id="bookmark-category-select">
+                        <!-- 分类选项会通过JavaScript动态填充 -->
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button type="submit">保存</button>
+                    <button type="button" class="cancel-btn">取消</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 移动书签模态框 -->
+    <div id="move-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>移动书签</h2>
+            <div class="form-group">
+                <label for="target-category">目标分类</label>
+                <select id="target-category"></select>
+            </div>
+            <div class="form-actions">
+                <button id="move-confirm-btn">移动</button>
+                <button type="button" class="cancel-btn">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 移动分类模态框 -->
+    <div id="category-move-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>移动分类</h2>
+            <div class="form-group">
+                <label for="target-parent-category">目标父分类</label>
+                <select id="target-parent-category"></select>
+            </div>
+            <div class="form-actions">
+                <button id="category-move-confirm-btn">移动</button>
+                <button type="button" class="cancel-btn">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 确认删除模态框 -->
+    <div id="confirm-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="confirm-title">确认删除</h2>
+            <p id="confirm-message"></p>
+            <div class="form-actions">
+                <button id="confirm-yes-btn">确认</button>
+                <button id="confirm-no-btn">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右键菜单 -->
+    <div id="category-context-menu" class="context-menu">
+        <ul>
+            <li id="add-subcategory"><i class="fas fa-folder-plus"></i> 新建子目录</li>
+            <li id="add-bookmark-category"><i class="fas fa-bookmark"></i> 添加书签</li>
+            <li id="rename-category"><i class="fas fa-edit"></i> 重命名</li>
+            <li id="move-category"><i class="fas fa-arrows-alt"></i> 移动</li>
+            <li id="delete-category"><i class="fas fa-trash"></i> 删除</li>
+        </ul>
+    </div>
+
+    <div id="bookmark-context-menu" class="context-menu">
+        <ul>
+            <li id="open-bookmark"><i class="fas fa-external-link-alt"></i> 打开</li>
+            <li id="edit-bookmark"><i class="fas fa-edit"></i> 编辑</li>
+            <li id="move-bookmark"><i class="fas fa-arrows-alt"></i> 移动</li>
+            <li id="delete-bookmark"><i class="fas fa-trash"></i> 删除</li>
+        </ul>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html> 
