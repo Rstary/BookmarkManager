@@ -6,6 +6,7 @@
 
 ```
 git clone https://github.com/Rstary/BookmarkManager.git
+cd BookmarkManager
 ```
 
 ```bash
