@@ -2,4 +2,6 @@ Flask==2.3.3
 Werkzeug==2.3.7
 pandas==2.1.1
 numpy==1.26.0
-python-dotenv==1.0.0 
+python-dotenv==1.0.0
+XlsxWriter==3.1.9
+openpyxl==3.1.2 

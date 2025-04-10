@@ -20,17 +20,20 @@ app.config.from_mapping(
     BLACKLIST_DURATION=3600,  # 黑名单持续时间（秒）
 )
 
-# 确保实例文件夹存在
+# 确保实例文件夹存在并设置正确的权限
 try:
-    os.makedirs(app.instance_path)
+    os.makedirs(app.instance_path, mode=0o777, exist_ok=True)
 except OSError:
     pass
 
 # 数据库连接
 def get_db():
     if 'db' not in g:
+        db_path = app.config['DATABASE']
+        # 确保数据库目录存在并有正确的权限
+        os.makedirs(os.path.dirname(db_path), mode=0o777, exist_ok=True)
         g.db = sqlite3.connect(
-            app.config['DATABASE'],
+            db_path,
             detect_types=sqlite3.PARSE_DECLTYPES
         )
         g.db.row_factory = sqlite3.Row
@@ -38,8 +41,11 @@ def get_db():
 
 def get_auth_db():
     if 'auth_db' not in g:
+        db_path = app.config['AUTH_DATABASE']
+        # 确保数据库目录存在并有正确的权限
+        os.makedirs(os.path.dirname(db_path), mode=0o777, exist_ok=True)
         g.auth_db = sqlite3.connect(
-            app.config['AUTH_DATABASE'],
+            db_path,
             detect_types=sqlite3.PARSE_DECLTYPES
         )
         g.auth_db.row_factory = sqlite3.Row
