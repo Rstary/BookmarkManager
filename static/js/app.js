@@ -10,6 +10,13 @@ const state = {
     searchMode: false,
     searchResults: [],
     categoryToMove: null,
+    expandedCategories: new Set(),  // 存储展开的分类ID
+    pagination: {
+        currentPage: 1,
+        perPage: 50,
+        total: 0,
+        totalPages: 0
+    },
     searchEngine: {
         current: 'google',
         urls: {
@@ -41,6 +48,7 @@ const elements = {
     moveSelectedBtn: document.getElementById('move-selected-btn'),
     deleteSelectedBtn: document.getElementById('delete-selected-btn'),
     cancelMultiSelectBtn: document.getElementById('cancel-multi-select-btn'),
+    exportSelectedBtn: document.getElementById('export-selected-btn'),
     
     // 模态框
     categoryModal: document.getElementById('category-modal'),
@@ -127,6 +135,7 @@ function initEventListeners() {
     elements.moveSelectedBtn.addEventListener('click', showMoveModal);
     elements.deleteSelectedBtn.addEventListener('click', confirmDeleteSelected);
     elements.cancelMultiSelectBtn.addEventListener('click', clearSelection);
+    elements.exportSelectedBtn.addEventListener('click', exportSelectedBookmarks);
     
     // 分类模态框
     document.getElementById('category-form').addEventListener('submit', (e) => {
@@ -202,6 +211,22 @@ function initEventListeners() {
         const bookmark = state.bookmarks.find(b => b.id == bookmarkId);
         if (bookmark) {
             window.open(bookmark.url, '_blank');
+        }
+        hideContextMenus();
+    });
+    
+    document.getElementById('copy-url').addEventListener('click', () => {
+        const bookmarkId = elements.bookmarkContextMenu.dataset.bookmarkId;
+        const bookmark = state.bookmarks.find(b => b.id == bookmarkId);
+        if (bookmark) {
+            navigator.clipboard.writeText(bookmark.url)
+                .then(() => {
+                    showSuccess('URL已复制到剪贴板');
+                })
+                .catch(err => {
+                    console.error('复制失败:', err);
+                    showError('复制失败，请手动复制');
+                });
         }
         hideContextMenus();
     });
@@ -416,55 +441,42 @@ async function fetchAllBookmarks() {
 async function fetchCategories() {
     try {
         const response = await fetch('/api/categories');
-        if (!response.ok) throw new Error('获取分类失败');
-        
-        state.categories = await response.json();
-        renderCategories();
-        
-        // 如果有分类，默认选择第一个
-        if (state.categories.length > 0) {
-            selectCategory(state.categories[0].id);
+        if (!response.ok) {
+            throw new Error('获取分类失败');
         }
+        const categories = await response.json();
+        state.categories = categories;
+        
+        // 折叠所有主目录
+        state.expandedCategories.clear();
+        renderCategories();
     } catch (error) {
-        console.error('Error:', error);
+        console.error('获取分类失败:', error);
         showError('获取分类失败，请刷新页面重试');
     }
 }
 
 async function fetchBookmarks(categoryId = null) {
     try {
-        let url = '/api/bookmarks';
+        const url = new URL('/api/bookmarks', window.location.origin);
         if (categoryId) {
-            url += `?category_id=${categoryId}`;
-        }
-        
-        const response = await fetch(url);
-        if (!response.ok) throw new Error('获取书签失败');
-        
-        state.bookmarks = await response.json();
-        
-        // 如果是主分类，还需要获取所有子分类的书签
-        if (categoryId) {
-            const currentCategory = state.categories.find(c => c.id == categoryId);
-            if (currentCategory && !currentCategory.parent_id) {
-                // 查找所有子分类
-                const subCategories = state.categories.filter(c => c.parent_id == categoryId);
-                
-                // 获取所有子分类的书签
-                for (const subCategory of subCategories) {
-                    const response = await fetch(`/api/bookmarks?category_id=${subCategory.id}`);
-                    if (response.ok) {
-                        const subBookmarks = await response.json();
-                        // 合并到主书签列表
-                        state.bookmarks = [...state.bookmarks, ...subBookmarks];
-                    }
-                }
+            url.searchParams.append('category_id', categoryId);
+            // 如果是主目录，则包含子目录的书签
+            const category = state.categories.find(c => c.id == categoryId);
+            if (category && !category.parent_id) {
+                url.searchParams.append('include_subcategories', 'true');
             }
         }
         
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error('获取书签失败');
+        }
+        
+        state.bookmarks = await response.json();
         renderBookmarks();
     } catch (error) {
-        console.error('Error:', error);
+        console.error('获取书签失败:', error);
         showError('获取书签失败，请刷新页面重试');
     }
 }
@@ -744,155 +756,99 @@ async function reorderCategories(categories) {
 
 // 渲染函数
 function renderCategories() {
-    elements.categoriesTree.innerHTML = '';
+    const container = elements.categoriesTree;
+    container.innerHTML = '';
     
-    // 渲染主分类
-    const mainCategories = state.categories.filter(c => !c.parent_id);
-    mainCategories.sort((a, b) => a.position - b.position);
+    // 获取所有主目录
+    const mainCategories = state.categories.filter(c => c.parent_id === null)
+        .sort((a, b) => a.position - b.position);
     
-    for (const category of mainCategories) {
-        const categoryItem = createCategoryElement(category);
-        elements.categoriesTree.appendChild(categoryItem);
+    mainCategories.forEach(mainCategory => {
+        const mainCategoryElement = createCategoryElement(mainCategory, false);
         
-        // 查找并渲染子分类
-        const subCategories = state.categories.filter(c => c.parent_id == category.id);
-        if (subCategories.length > 0) {
-            const subContainer = document.createElement('div');
-            subContainer.className = 'subcategory-container';
-            subContainer.dataset.parentId = category.id;
-            
-            subCategories.sort((a, b) => a.position - b.position);
-            for (const subCategory of subCategories) {
-                const subCategoryItem = createCategoryElement(subCategory, true);
-                subContainer.appendChild(subCategoryItem);
-            }
-            
-            elements.categoriesTree.appendChild(subContainer);
-        }
-    }
+        // 获取该主目录下的所有子目录
+        const subCategories = state.categories.filter(c => c.parent_id === mainCategory.id)
+            .sort((a, b) => a.position - b.position);
+        
+        const subcategoriesContainer = mainCategoryElement.querySelector('.subcategories-container');
+        
+        subCategories.forEach(subCategory => {
+            const subCategoryElement = createCategoryElement(subCategory, true);
+            subcategoriesContainer.appendChild(subCategoryElement);
+        });
+        
+        container.appendChild(mainCategoryElement);
+    });
 }
 
 function createCategoryElement(category, isSubcategory = false) {
-    const categoryItem = document.createElement('div');
-    categoryItem.className = 'category-item';
-    categoryItem.dataset.id = category.id;
-    categoryItem.draggable = true;
+    const div = document.createElement('div');
+    div.className = `category-item ${isSubcategory ? 'subcategory' : ''}`;
+    div.dataset.categoryId = category.id;
     
-    if (state.currentCategory == category.id) {
-        categoryItem.classList.add('active');
+    // 创建图标和名称的容器
+    const iconNameContainer = document.createElement('div');
+    iconNameContainer.className = 'category-content';
+    
+    // 添加展开/折叠按钮（仅对主目录）
+    if (!isSubcategory) {
+        const toggleBtn = document.createElement('button');
+        toggleBtn.className = 'category-toggle';
+        toggleBtn.innerHTML = state.expandedCategories.has(category.id) ? 
+            '<i class="fas fa-chevron-down"></i>' : 
+            '<i class="fas fa-chevron-right"></i>';
+        toggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleCategory(category.id);
+        });
+        iconNameContainer.appendChild(toggleBtn);
     }
     
+    // 添加文件夹图标
     const icon = document.createElement('i');
-    icon.className = isSubcategory ? 'fas fa-folder' : 'fas fa-folder-open';
+    icon.className = 'fas fa-folder';
+    iconNameContainer.appendChild(icon);
     
+    // 添加分类名称
     const name = document.createElement('span');
     name.className = 'category-name';
     name.textContent = category.name;
+    iconNameContainer.appendChild(name);
     
-    categoryItem.appendChild(icon);
-    categoryItem.appendChild(name);
-    
-    // 事件监听
-    categoryItem.addEventListener('click', () => {
+    // 将点击事件添加到iconNameContainer而不是整个div
+    iconNameContainer.addEventListener('click', (e) => {
+        e.stopPropagation();
         selectCategory(category.id);
     });
     
-    categoryItem.addEventListener('contextmenu', (e) => {
+    div.appendChild(iconNameContainer);
+    
+    // 添加子分类容器（仅对主目录）
+    if (!isSubcategory) {
+        const subcategoriesContainer = document.createElement('div');
+        subcategoriesContainer.className = 'subcategories-container';
+        subcategoriesContainer.style.display = state.expandedCategories.has(category.id) ? 'block' : 'none';
+        div.appendChild(subcategoriesContainer);
+    }
+    
+    // 右键菜单事件添加到iconNameContainer
+    iconNameContainer.addEventListener('contextmenu', (e) => {
         e.preventDefault();
+        e.stopPropagation();
         showCategoryContextMenu(e, category);
     });
     
-    // 拖拽事件
-    categoryItem.addEventListener('dragstart', (e) => {
-        e.dataTransfer.setData('text/plain', category.id);
-        state.draggedCategory = category;
-        categoryItem.classList.add('dragging');
-    });
-    
-    categoryItem.addEventListener('dragend', () => {
-        categoryItem.classList.remove('dragging');
-        state.draggedCategory = null;
-        document.querySelectorAll('.drag-over').forEach(el => {
-            el.classList.remove('drag-over');
-        });
-    });
-    
-    categoryItem.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        if (state.draggedCategory && state.draggedCategory.id != category.id) {
-            // 只允许将子分类拖到主分类上，或者在同级别之间拖动
-            const isValidDrag = (state.draggedCategory.parent_id && !category.parent_id) || 
-                                (state.draggedCategory.parent_id == category.parent_id);
-            
-            if (isValidDrag) {
-                categoryItem.classList.add('drag-over');
-            }
-        }
-    });
-    
-    categoryItem.addEventListener('dragleave', () => {
-        categoryItem.classList.remove('drag-over');
-    });
-    
-    categoryItem.addEventListener('drop', async (e) => {
-        e.preventDefault();
-        categoryItem.classList.remove('drag-over');
-        
-        if (state.draggedCategory && state.draggedCategory.id != category.id) {
-            // 只允许将子分类拖到主分类上，或者在同级别之间拖动
-            const isValidDrop = (state.draggedCategory.parent_id && !category.parent_id) || 
-                               (state.draggedCategory.parent_id == category.parent_id);
-            
-            if (isValidDrop) {
-                // 更新位置
-                if (state.draggedCategory.parent_id) {
-                    // 子分类拖到主分类
-                    if (!category.parent_id) {
-                        state.draggedCategory.parent_id = null;
-                    }
-                }
-                
-                // 找出所有同级分类
-                const siblings = state.categories.filter(c => 
-                    c.parent_id === state.draggedCategory.parent_id && c.id !== state.draggedCategory.id
-                );
-                
-                // 更新位置
-                const targetIdx = siblings.findIndex(c => c.id === category.id);
-                
-                // 更新所有受影响的分类位置
-                const updateCategories = [];
-                
-                for (let i = 0; i < siblings.length; i++) {
-                    if (i >= targetIdx) {
-                        siblings[i].position = i + 1;
-                    } else {
-                        siblings[i].position = i;
-                    }
-                    updateCategories.push({
-                        id: siblings[i].id,
-                        position: siblings[i].position,
-                        parent_id: siblings[i].parent_id
-                    });
-                }
-                
-                state.draggedCategory.position = targetIdx;
-                updateCategories.push({
-                    id: state.draggedCategory.id,
-                    position: state.draggedCategory.position,
-                    parent_id: state.draggedCategory.parent_id
-                });
-                
-                // 发送请求更新顺序
-                await reorderCategories(updateCategories);
-                
-                // 重新渲染
-                renderCategories();
-            }
-        }
-    });
-    
-    return categoryItem;
+    return div;
+}
+
+// 切换分类的展开/折叠状态
+function toggleCategory(categoryId) {
+    if (state.expandedCategories.has(categoryId)) {
+        state.expandedCategories.delete(categoryId);
+    } else {
+        state.expandedCategories.add(categoryId);
+    }
+    renderCategories();
 }
 
 function renderBookmarks() {
@@ -1226,24 +1182,18 @@ function renderCategoryTitle() {
 function selectCategory(categoryId) {
     state.currentCategory = categoryId;
     
-    // 更新UI激活状态
-    document.querySelectorAll('.category-item').forEach(item => {
-        item.classList.remove('active');
+    // 更新选中状态的样式
+    document.querySelectorAll('.category-content').forEach(content => {
+        content.classList.remove('active');
     });
     
-    const categoryItem = document.querySelector(`.category-item[data-id="${categoryId}"]`);
-    if (categoryItem) {
-        categoryItem.classList.add('active');
+    const selectedContent = document.querySelector(`.category-item[data-category-id="${categoryId}"] .category-content`);
+    if (selectedContent) {
+        selectedContent.classList.add('active');
     }
     
-    // 渲染分类标题
     renderCategoryTitle();
-    
-    // 重新获取书签
     fetchBookmarks(categoryId);
-    
-    // 清除选择
-    clearSelection();
 }
 
 function toggleBookmarkSelection(bookmarkId) {
@@ -1637,8 +1587,67 @@ function closeModal(modal) {
     modal.style.display = 'none';
 }
 
+// Toast提示函数
+function showToast(message, type = 'error') {
+    // 创建或获取toast容器
+    let container = document.querySelector('.toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+    }
+
+    // 创建toast元素
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    
+    // 设置图标
+    let icon = '';
+    switch (type) {
+        case 'success':
+            icon = '<i class="fas fa-check-circle"></i>';
+            break;
+        case 'error':
+            icon = '<i class="fas fa-exclamation-circle"></i>';
+            break;
+        case 'warning':
+            icon = '<i class="fas fa-exclamation-triangle"></i>';
+            break;
+    }
+    
+    toast.innerHTML = `${icon}<span>${message}</span>`;
+    container.appendChild(toast);
+
+    // 添加显示动画类
+    requestAnimationFrame(() => {
+        toast.style.opacity = '1';
+    });
+
+    // 3秒后移除toast
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => {
+            container.removeChild(toast);
+            if (container.children.length === 0) {
+                document.body.removeChild(container);
+            }
+        }, 300);
+    }, 3000);
+}
+
+// 更新原有的showError函数
 function showError(message) {
-    alert(message);
+    showToast(message, 'error');
+}
+
+// 添加成功提示函数
+function showSuccess(message) {
+    showToast(message, 'success');
+}
+
+// 添加警告提示函数
+function showWarning(message) {
+    showToast(message, 'warning');
 }
 
 function showCategoryMoveModal(categoryId) {
@@ -1750,4 +1759,92 @@ function toggleSearchEngineDropdown() {
 function setSearchEngine(engine, iconClass) {
     state.searchEngine.current = engine;
     elements.searchEngineIcon.className = iconClass;
+}
+
+// 导出选中的书签
+async function exportSelectedBookmarks() {
+    if (state.selectedBookmarks.size === 0) {
+        showError('请先选择要导出的书签');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/bookmarks/export', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                bookmark_ids: Array.from(state.selectedBookmarks)
+            })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || '导出失败');
+        }
+        
+        // 获取Blob对象
+        const blob = await response.blob();
+        
+        // 创建下载链接
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = '书签导出.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        
+        // 清理
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+    } catch (error) {
+        showError(error.message);
+    }
+}
+
+function renderPagination() {
+    const container = document.createElement('div');
+    container.className = 'pagination';
+    
+    // 上一页按钮
+    const prevBtn = document.createElement('button');
+    prevBtn.className = 'pagination-btn';
+    prevBtn.disabled = state.pagination.currentPage === 1;
+    prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
+    prevBtn.addEventListener('click', () => {
+        if (state.pagination.currentPage > 1) {
+            state.pagination.currentPage--;
+            fetchBookmarks(state.currentCategory);
+        }
+    });
+    container.appendChild(prevBtn);
+    
+    // 页码信息
+    const pageInfo = document.createElement('span');
+    pageInfo.className = 'page-info';
+    pageInfo.textContent = `${state.pagination.currentPage} / ${state.pagination.totalPages}`;
+    container.appendChild(pageInfo);
+    
+    // 下一页按钮
+    const nextBtn = document.createElement('button');
+    nextBtn.className = 'pagination-btn';
+    nextBtn.disabled = state.pagination.currentPage === state.pagination.totalPages;
+    nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+    nextBtn.addEventListener('click', () => {
+        if (state.pagination.currentPage < state.pagination.totalPages) {
+            state.pagination.currentPage++;
+            fetchBookmarks(state.currentCategory);
+        }
+    });
+    container.appendChild(nextBtn);
+    
+    // 添加到书签容器
+    const bookmarksContainer = elements.bookmarksContainer;
+    const existingPagination = bookmarksContainer.querySelector('.pagination');
+    if (existingPagination) {
+        existingPagination.remove();
+    }
+    bookmarksContainer.appendChild(container);
 }

@@ -1,11 +1,13 @@
 import os
 import sqlite3
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, g
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, g, send_file
 from werkzeug.security import generate_password_hash, check_password_hash
 import time
 from functools import wraps
 import math
 import re
+import pandas as pd
+from io import BytesIO
 
 app = Flask(__name__, instance_relative_config=True)
 app.config.from_mapping(
@@ -583,36 +585,39 @@ def reorder_categories():
 @app.route('/api/bookmarks', methods=['GET'])
 @login_required
 def get_bookmarks():
-    category_id = request.args.get('category_id', type=int)
-    
-    db = get_db()
     try:
+        category_id = request.args.get('category_id')
+        include_subcategories = request.args.get('include_subcategories', 'false').lower() == 'true'
+        
+        db = get_db()
+        
+        # 构建查询
+        query = 'SELECT * FROM bookmarks'
+        params = []
+        
         if category_id:
-            bookmarks = db.execute(
-                'SELECT id, title, url, description, category_id, position FROM bookmarks WHERE category_id = ? ORDER BY position',
-                (category_id,)
-            ).fetchall()
-        else:
-            bookmarks = db.execute(
-                'SELECT id, title, url, description, category_id, position FROM bookmarks ORDER BY position'
-            ).fetchall()
+            if include_subcategories:
+                # 获取所有子分类ID
+                subcategory_ids = [category_id]
+                cursor = db.execute('SELECT id FROM categories WHERE parent_id = ?', (category_id,))
+                for row in cursor:
+                    subcategory_ids.append(row['id'])
+                
+                # 构建IN查询
+                placeholders = ','.join(['?' for _ in subcategory_ids])
+                query += f' WHERE category_id IN ({placeholders})'
+                params.extend(subcategory_ids)
+            else:
+                query += ' WHERE category_id = ?'
+                params.append(category_id)
         
-        result = []
-        for bookmark in bookmarks:
-            result.append({
-                'id': bookmark['id'],
-                'title': bookmark['title'],
-                'url': bookmark['url'],
-                'description': bookmark['description'],
-                'category_id': bookmark['category_id'],
-                'position': bookmark['position']
-            })
+        query += ' ORDER BY position ASC'
+        bookmarks = db.execute(query, params).fetchall()
         
-        return jsonify(result)
-    except sqlite3.OperationalError:
-        # 如果表不存在，自动初始化数据库并返回空列表
-        init_db()
-        return jsonify([])
+        return jsonify([dict(bookmark) for bookmark in bookmarks])
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/bookmarks', methods=['POST'])
 @login_required
@@ -912,6 +917,49 @@ def update_bookmark_position(id):
     except sqlite3.Error as e:
         db.rollback()
         print(f"更新书签位置错误: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/bookmarks/export', methods=['POST'])
+@login_required
+def export_bookmarks():
+    try:
+        bookmark_ids = request.json.get('bookmark_ids', [])
+        if not bookmark_ids:
+            return jsonify({'error': '未选择书签'}), 400
+            
+        db = get_db()
+        placeholders = ','.join(['?' for _ in bookmark_ids])
+        bookmarks = db.execute(
+            f'SELECT title, url, description FROM bookmarks WHERE id IN ({placeholders})',
+            bookmark_ids
+        ).fetchall()
+        
+        # 创建DataFrame
+        df = pd.DataFrame(bookmarks, columns=['名称', 'URL', '描述'])
+        
+        # 创建Excel文件
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            df.to_excel(writer, index=False, sheet_name='书签')
+            
+            # 获取工作表对象
+            worksheet = writer.sheets['书签']
+            
+            # 设置列宽
+            worksheet.set_column('A:A', 30)  # 名称列
+            worksheet.set_column('B:B', 50)  # URL列
+            worksheet.set_column('C:C', 40)  # 描述列
+            
+        output.seek(0)
+        
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name='书签导出.xlsx'
+        )
+        
+    except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
