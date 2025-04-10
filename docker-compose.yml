@@ -9,6 +9,7 @@ services:
     volumes:
       - ./instance:/app/instance
     restart: unless-stopped
+    user: "1000:1000"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/"]
       interval: 30s
